@@ -1,7 +1,8 @@
-# The Knowledge Guy
+# Book Digest — Local Knowledge Hub
 
-> Turn any PDF or EPUB into a structured Claude Code skill —
-> then ask your whole bookshelf a single question.
+> Powered by [vitalysim/the-knowledge-guy](https://github.com/vitalysim/the-knowledge-guy)
+> 
+> Turn any PDF or EPUB in `raw/` into a structured 2-Tier AI skill — then query or tutor across your bookshelf.
 
 <p align="center">
   <img src="docs/hero-pipeline.png" alt="Pipeline diagram: /book-to-skill ingests a PDF through five map-reduce stages into a two-tier Claude Code skill; /the-knowledge-guy routes any question across every installed skill and writes both a chat response and an HTML artifact." width="900">

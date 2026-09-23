@@ -1,7 +1,8 @@
 # the-knowledge-guy
 
 # Generated outputs — local to each install, not source
-artifacts/
+artifacts/*
+!artifacts/.gitkeep
 previews/
 
 # Generated book-skills — created by `/book-to-skill` per user, not shipped.
@@ -42,3 +43,14 @@ __pycache__/
 # Claude Code local-only settings (project-scoped overrides shipped via
 # `.claude/settings.json` if any; user-scoped local prefs are ignored).
 .claude/settings.local.json
+
+# Keep artifacts directory structure
+!artifacts/.gitkeep
+
+# Raw large binary book files
+raw/*.pdf
+raw/*.epub
+raw/*.mobi
+raw/*.azw3
+!raw/.gitkeep
+
