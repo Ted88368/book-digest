@@ -1,268 +1,235 @@
-# Book Digest — Local Knowledge Hub
+# Book Digest —— 本地知识中枢
 
-> Powered by [vitalysim/the-knowledge-guy](https://github.com/vitalysim/the-knowledge-guy)
+[English](./README_EN.md)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![Language: Python](https://img.shields.io/badge/Language-Python-blue.svg)](https://www.python.org/)
+
+> 基于 [vitalysim/the-knowledge-guy](https://github.com/vitalysim/the-knowledge-guy)
 > 
-> Turn any PDF or EPUB in `raw/` into a structured 2-Tier AI skill — then query or tutor across your bookshelf.
+> 把 `raw/` 里的任意 PDF 或 EPUB 变成结构化的两层 AI 技能 —— 然后在整个书架上提问、学习。
 
 <p align="center">
-  <img src="docs/hero-pipeline.png" alt="Pipeline diagram: /book-to-skill ingests a PDF through five map-reduce stages into a two-tier Claude Code skill; /the-knowledge-guy routes any question across every installed skill and writes both a chat response and an HTML artifact." width="900">
+  <img src="docs/hero-pipeline.png" alt="管线示意图：/book-to-skill 通过五个 map-reduce 阶段把 PDF 摄入为一个两层 Claude Code 技能；/the-knowledge-guy 将任意问题路由到所有已安装的技能，同时写出一条聊天回复和一个 HTML 产物。" width="900">
 </p>
 
-*From a PDF on disk to a queryable knowledge skill in one command;
-from a question to a cross-domain answer in another.*
+*从磁盘上的 PDF 到可查询的知识技能，一条命令；
+从一个问题到跨领域的答案，另一条。*
 
 ---
 
-## What this is
+## 这是什么
 
-A long book is 400K+ tokens; you forget the middle by the end; asking
-a question that spans three books is impossible. Existing tools
-either stuff everything into context (expensive, forgetful) or
-hand-write summaries (lossy, immediately stale).
+一本长书有 40 万以上 token；读到结尾你已忘掉中间；跨三本书提问则根本做不到。
+现有工具要么把一切塞进上下文（昂贵、健忘），要么手写摘要（有损、立刻过期）。
 
-`/book-to-skill` is a **map-reduce ingest pipeline** that turns a
-PDF or EPUB into a two-tier Claude Code skill: an always-loaded
-concept map (~3K tokens — thesis, 6-10 load-bearing frameworks,
-chapter and topic indexes) plus on-demand chapter toolkits (~1K
-tokens each — frameworks, techniques, anti-patterns, worked
-examples). A 600-page book becomes a skill that costs a few thousand
-tokens to consult instead of four hundred.
+`/book-to-skill` 是一条 **map-reduce 摄入管线**，把 PDF 或 EPUB 变成一个
+两层 Claude Code 技能：一份常驻加载的概念地图（约 3K token —— 论点、
+6-10 个承重框架、章节与主题索引）加按需调用的章节工具箱（每份约 1K token
+—— 框架、技法、反模式、实例）。一本 600 页的书变成一个咨询成本几千 token
+而非四十万 token 的技能。
 
-`/the-knowledge-guy` is the **router and interactive teacher** across
-every installed skill. It auto-discovers skills from the filesystem
-at every invocation, routes any question to every plausibly relevant
-book in parallel, and synthesises one answer with inline citations.
-It can teach a topic step by step with quizzes and resumable progress
-— and it can turn a chapter into an interactive **learn-by-doing**
-website: theory with manipulable SVG illustrations, auto-checked
-quizzes, in-browser code labs, and open tasks it grades against a
-rubric.
+`/the-knowledge-guy` 是跨所有已安装技能的**路由器与互动教师**。它在每次
+调用时从文件系统自动发现技能，把任意问题并行路由到每一本可能相关的书，
+并综合出带内联引用的一个答案。它可以带测验、可恢复进度地一步步教你一个
+主题 —— 也可以把一个章节变成一个交互式**边做边学**网站：带可操作 SVG
+插图的理论、自动判分的测验、浏览器内代码实验，以及按评分量表判分的
+开放任务。
 
-The architectural rule that holds it together: **plumbing in Python,
-intelligence in Claude.** `extract.py` does mechanical PDF → text +
-slices + image manifest, and that is *all* it does. Every act of
-understanding — framework extraction, concept mapping, synthesis,
-quiz authoring — is an LLM call.
+把它拧在一起的架构规则：**Python 负责管道，Claude 负责智能。**
+`extract.py` 只做机械的 PDF → 文本 + 切片 + 图片清单，仅此而已。
+每一次理解 —— 框架提取、概念映射、综合、出题 —— 都是一次 LLM 调用。
 
-Both skills follow Anthropic's `SKILL.md` open standard — consumed
-natively by Claude Code, Claude Desktop, claude.ai, the Claude API,
-OpenAI Codex CLI, and GitHub Copilot. See *Install on your platform*
-below.
+两个技能都遵循 Anthropic 的 `SKILL.md` 开放标准 —— 被 Claude Code、
+Claude Desktop、claude.ai、Claude API、OpenAI Codex CLI 和 GitHub Copilot
+原生消费。见下文 *在你的平台上安装*。
 
-## Quick start
+## 快速上手
 
 ```bash
-/book-to-skill /path/to/book.pdf                                  # ingest  (add --course → complete coverage + practice)
-/the-knowledge-guy what do my books say about margin of safety?   # ask
-/the-knowledge-guy walk me through Kerberos                       # tutor
-/the-knowledge-guy course <skill-slug>                            # learn by doing
-/the-knowledge-guy nutshell <skill-slug>                          # skim
-/the-knowledge-guy resume                                         # resume
+/book-to-skill /path/to/book.pdf                                  # 摄入（加 --course → 完整覆盖 + 练习）
+/the-knowledge-guy what do my books say about margin of safety?   # 提问
+/the-knowledge-guy walk me through Kerberos                       # 教学
+/the-knowledge-guy course <skill-slug>                            # 边做边学
+/the-knowledge-guy nutshell <skill-slug>                          # 略读
+/the-knowledge-guy resume                                         # 继续
 ```
 
-Every invocation also writes a self-contained HTML artifact to
-`artifacts/`. Course pages are interactive — they run in the browser.
+每次调用还会向 `artifacts/` 写一个自包含的 HTML 产物。课程页是交互式的
+—— 直接在浏览器中运行。
 
-## The system, in two pieces
+## 系统由两部分构成
 
-### `/book-to-skill` — the ingest pipeline
+### `/book-to-skill` —— 摄入管线
 
-Map-reduce in six stages (the sixth, **Stage 3 PRACTICE**, is opt-in),
-plus an opt-in per-chapter **coverage audit**. What's worth knowing:
+六个阶段的 map-reduce（第六个 **Stage 3 PRACTICE** 为可选），外加可选的
+逐章**覆盖度审计**。值得知道的要点：
 
-- **Two-tier output.** `SKILL.md` is always loaded;
-  `chapters/<book_number>-<slug>.md` is paged in on demand. The
-  tier-1 file is front-loaded so compaction keeps the start safely.
-- **`book_number` is the canonical chapter label** — `ch07`, `intro`,
-  `appendix-a`, `part-1`, `fm`, `bm`. The book's own chapter numbers,
-  never extraction order. The manifest also carries an internal
-  `index` — never user-facing.
-- **`schema_version: 2`** plus three idempotent helper scripts so
-  legacy skills upgrade in place without re-extracting.
-- **Resume is filesystem-driven.** Re-running on a partial run is
-  always safe; chapter files in `chapters/` are the checkpoint.
-- **`raw/` stays with the skill** — full text, slices, images,
-  metadata, Pass-0 spine. Re-extracting one chapter never re-runs
-  Stage 0.
-- **Seven genre profiles** (technical / vuln-hunting / financial /
-  scientific / productivity / narrative non-fiction / general) tune
-  chunk boundaries, the chapter schema, and the reduce emphasis.
-- **Complete-coverage mode (opt-in)** replaces the default dense, capped
-  toolkits with capturing *every* load-bearing element in every chapter,
-  then runs a per-chapter **coverage audit** and re-runs any chapter with
-  gaps until it clears a 95% gate — so nothing is silently dropped. (CS:APP
-  was ingested this way: 130 sections, every one audited to 100%.)
-- **Stage 3 PRACTICE (opt-in)** turns each chapter into a practice set —
-  it extracts the book's own exercises, generates new ones, and for
-  cyber/technical chapters can web-research realistic labs. The output
-  (`practice/<book_number>-<slug>.json`) is what `/the-knowledge-guy
-  course` renders as an interactive learn-by-doing site. Best for
-  technical / textbook / vuln-hunting books.
-- **Options — flags or interactive.** Pass `--complete` (full coverage),
-  `--practice` (Stage 3), `--course` (both → course-ready), or
-  `--regenerate` (rebuild an existing skill) — or omit them and
-  book-to-skill prompts for each *with a cost estimate before spending*.
-  The same flags pass through the router: `/the-knowledge-guy <path>.pdf --course`.
+- **两层输出。** `SKILL.md` 常驻加载；`chapters/<book_number>-<slug>.md`
+  按需调入。第一层文件前重后轻，上下文压缩时能安全保留开头。
+- **`book_number` 是规范的章节标签** —— `ch07`、`intro`、`appendix-a`、
+  `part-1`、`fm`、`bm`。用书自身的章节编号，绝不用抽取顺序。manifest 另带
+  一个内部 `index` —— 永不面向用户。
+- **`schema_version: 2`** 加三个幂等的辅助脚本，让旧技能可以就地升级，
+  无需重新抽取。
+- **恢复靠文件系统驱动。** 对一次半成品运行重跑永远安全；`chapters/` 里
+  的章节文件就是检查点。
+- **`raw/` 随技能保留** —— 全文、切片、图片、元数据、Pass-0 脊柱。
+  重新抽取一个章节从不重跑 Stage 0。
+- **七种体裁画像**（技术 / 漏洞挖掘 / 金融 / 科学 / 效率 / 叙事非虚构 /
+  通用）调校分块边界、章节 schema 与 reduce 的侧重。
+- **完整覆盖模式（可选）** 用"捕获每章每一个承重元素"替代默认的密集但
+  限量工具箱，然后跑一次逐章**覆盖度审计**，凡有缺漏的章节重跑直到越过
+  95% 门槛 —— 保证没有任何内容被静默丢弃。（CS:APP 就是这样摄入的：
+  130 个 section，逐个审计到 100%。）
+- **Stage 3 PRACTICE（可选）** 把每个章节变成一个练习集 —— 它提取书自带的
+  练习、生成新练习，对安全/技术章节还能联网调研出真实感实验。产物
+  （`practice/<book_number>-<slug>.json`）就是 `/the-knowledge-guy
+  course` 渲染成交互式边做边学网站的内容。最适合技术 / 教材 / 漏洞挖掘
+  类书籍。
+- **选项 —— 标志或交互。** 传 `--complete`（完整覆盖）、`--practice`
+  （Stage 3）、`--course`（两者 → 直接可出课程）或 `--regenerate`（重建
+  已有技能）—— 或者都不传，book-to-skill 会逐项询问，且*在花费前给出
+  成本估算*。相同标志也可穿过路由器：`/the-knowledge-guy <path>.pdf --course`。
 
-### `/the-knowledge-guy` — the router + teacher
+### `/the-knowledge-guy` —— 路由器 + 教师
 
-Auto-discovery, no registry. Reads `.claude/skills/*/SKILL.md`
-frontmatter at every invocation; drop a skill in, the router picks it
-up on the next call. Excludes itself and `book-to-skill` from
-routing, every time.
+自动发现，无注册表。每次调用读取 `.claude/skills/*/SKILL.md` 的 frontmatter；
+放一个技能进来，路由器下次调用就会捡起。每次都把自己和 `book-to-skill`
+排除在路由之外。
 
-| Mode | What it does | Trigger |
-| ---- | ------------ | ------- |
-| **ask** | Cross-domain synthesis essay with inline citations | open-ended question |
-| **walk** | Interactive curriculum with quizzes, progress saved across sessions | `walk me through <topic>` |
-| **course** | Interactive learn-by-doing site per chapter — theory + auto-checked quizzes + in-browser code labs + open tasks graded by Claude | `course <book> [<chapter>]` |
-| **check** | Grade an open-ended practice answer against its rubric | `check <book> <ch> <id>` |
-| **nutshell** | Whole-book per-chapter skim (~100 words/chapter) | `nutshell <book>` |
-| **library** | Bookshelf overview | `library` |
-| **comparison** | One concept across multiple books, tagged agree / extend / tension | `compare <topic>` |
-| **cheatsheet** | Operational one-pager per book | `cheatsheet <book>` |
-| **glossary** | A-Z term lookup, per-book or cross-library | `glossary [<book>]` |
-| **concept-map** | Tier-1 framework graph for a book | `concept-map <book>` |
-| **toolkit** | Tier-2 deep dive on one chapter | `toolkit <book> <chapter>` |
-| **ingest** | Hand off a PDF/EPUB to `book-to-skill` | `add <path>.pdf` |
-| **resume** | Pick up an interrupted walk | `resume` |
+| 模式 | 做什么 | 触发方式 |
+| ---- | ------ | ------- |
+| **ask** | 带内联引用的跨领域综合长文 | 开放式问题 |
+| **walk** | 带测验的互动课程，进度跨会话保存 | `walk me through <topic>` |
+| **course** | 每章一个交互式边做边学网站 —— 理论 + 自动判分测验 + 浏览器内代码实验 + Claude 判分的开放任务 | `course <book> [<chapter>]` |
+| **check** | 按量表判分一个开放式练习答案 | `check <book> <ch> <id>` |
+| **nutshell** | 整书逐章略读（每章约 100 词） | `nutshell <book>` |
+| **library** | 书架总览 | `library` |
+| **comparison** | 一个概念跨多本书，标注 一致 / 延伸 / 张力 | `compare <topic>` |
+| **cheatsheet** | 每书一页操作速查 | `cheatsheet <book>` |
+| **glossary** | A-Z 术语查询，按书或跨全库 | `glossary [<book>]` |
+| **concept-map** | 一本书的第一层框架图 | `concept-map <book>` |
+| **toolkit** | 对一个章节的第二层深挖 | `toolkit <book> <chapter>` |
+| **ingest** | 把 PDF/EPUB 移交给 `book-to-skill` | `add <path>.pdf` |
+| **resume** | 接续一次中断的 walk | `resume` |
 
-Ask mode never reads a domain `SKILL.md` itself — it reads only the
-40-line frontmatter for routing, then fans out one parallel subagent
-per matched skill. Each subagent loads exactly one book and answers
-in 200-400 words with chapter citations. The orchestrator synthesises
-the reports into one unified essay.
+ask 模式自己从不读领域 `SKILL.md` —— 它只读 40 行的 frontmatter 用于路由，
+然后为每个匹配技能扇出一个并行 subagent。每个 subagent 恰好加载一本书，
+用 200-400 词带章节引用作答。编排者把这些报告综合成一篇统一长文。
 
-### Learn by doing — the `course` experience
+### 边做边学 —— `course` 体验
 
-For technical, textbook, and vuln-hunting books, reading is only half
-of learning. `/the-knowledge-guy course <book>` renders an interactive
-website per chapter (plus a syllabus index) that teaches *and* makes you
-practice. The full loop, all in a self-contained HTML page that opens
-from disk:
+对技术、教材与漏洞挖掘类书籍，阅读只是学习的一半。
+`/the-knowledge-guy course <book>` 为每章渲染一个交互式网站（外加一份
+课程大纲索引），既教又让你练。整个闭环都在一个可从磁盘直接打开的
+自包含 HTML 页面里：
 
-- **Theory** — the chapter taught in practitioner voice, composed from
-  the design-system components, optionally with an **interactive SVG
-  concept widget**: toggle a sanitizer and watch taint stop at it; drag a
-  write-length past a buffer's capacity and watch it turn critical; step a
-  pipeline; compare two approaches. Five widget types
-  (`flow`, `toggle-state`, `stepper`, `slider`, `compare`), all built from
-  the existing `.plate`/`.illus` classes so they invert in dark mode, with
-  motion gated behind `prefers-reduced-motion`. The teaching subagent adds
-  one only where a concept is genuinely structural — prose by default.
-- **Practice** — auto-checked quizzes (multiple-choice, predict-output,
-  fix-the-bug, fill-in-the-blank, reorder-steps, spot-the-anti-pattern)
-  with instant feedback; **in-browser runnable code labs** (JavaScript
-  natively; Python via Pyodide) that execute the learner's code in a
-  sandboxed iframe and run a deterministic check; and open-ended tasks.
-- **Grading + progress** — an open task's *"Check with Claude"* button
-  copies a `check …` command; paste it back and Claude grades it against
-  the task's rubric and records the result. Quiz/lab progress saves to the
-  browser's `localStorage`; a durable `course-<slug>.md` memory file is the
-  source of truth, and the index shows a mastery meter per chapter.
+- **理论** —— 用从业者口吻讲这个章节，由设计系统组件拼成，可选配一个
+  **交互式 SVG 概念部件**：切换一个 sanitizer，看着污点传播止于此处；把
+  写入长度拖过缓冲区容量，看它转为 critical；逐步推进一条管线；对比两种
+  做法。五种部件类型（`flow`、`toggle-state`、`stepper`、`slider`、
+  `compare`），全部由现有 `.plate`/`.illus` 类构成，因此暗色模式自动反转，
+  动效受 `prefers-reduced-motion` 约束。教学 subagent 只在概念确实结构性
+  时才加一个 —— 默认纯文字。
+- **练习** —— 自动判分的测验（单选、预测输出、修 bug、填空、重排步骤、
+  找反模式）即时反馈；**浏览器内可运行的代码实验**（JavaScript 原生支持；
+  Python 走 Pyodide）在沙箱 iframe 中执行学习者代码并跑确定性检查；以及
+  开放式任务。
+- **判分 + 进度** —— 开放任务的 *"Check with Claude"* 按钮会复制一条
+  `check …` 命令；粘回来，Claude 按该任务的量表判分并记录结果。测验/实验
+  进度存进浏览器 `localStorage`；持久的 `course-<slug>.md` 记忆文件才是
+  事实源，索引为每章显示一个掌握度仪表。
 
-The practice content comes from `book-to-skill`'s opt-in **Stage 3
-PRACTICE**, which extracts the book's own exercises, generates new ones,
-and can web-research realistic labs (`practice/<book_number>-<slug>.json`).
-Two lints guard it: `lint_practice.py` *executes* every lab to prove its
-solution passes and its starter fails, and `lint_concept_widgets.py`
-validates each widget's schema and rejects any bespoke SVG that hardcodes
-a color (the engine itself never sets one).
+练习内容来自 `book-to-skill` 的可选 **Stage 3 PRACTICE**：它提取书自带的
+练习、生成新练习，并可为实验做联网调研（`practice/<book_number>-<slug>.json`）。
+两个 lint 守护它：`lint_practice.py` *执行* 每个实验，证明其解答能过、
+其起点会挂；`lint_concept_widgets.py` 校验每个部件的 schema，并拒绝任何
+硬编码颜色的定制 SVG（引擎自身从不设置颜色）。
 
-## Every output is also an HTML artifact
+## 每个输出同时也是 HTML 产物
 
-Every invocation writes both text to chat *and* a self-contained HTML
-file to `artifacts/`, using a shared design system ("Knowledge Guide
-· Modern" — Bricolage Grotesque + JetBrains Mono, single cobalt
-accent, light/dark + density toggle persisted in `localStorage`).
-Catalog at `artifacts/index.html` is auto-updated on every write.
+每次调用都向聊天写文本*并*向 `artifacts/` 写一个自包含 HTML 文件，
+使用共享设计系统（"Knowledge Guide · Modern" —— Bricolage Grotesque +
+JetBrains Mono，单一 cobalt 强调色，亮/暗 + 密度开关持久化在
+`localStorage`）。目录 `artifacts/index.html` 在每次写入时自动更新。
 
 ```
 artifacts/
-├── index.html                              ← auto-updated catalog
-├── library.html                            ← bookshelf overview
-├── nutshells/<book-slug>.html              ← cached, deterministic
-├── synthesis/YYYY-MM-DD-<query-slug>.html  ← dated, never reused
-├── walks/<topic>-step-<N>.html             ← overwritten per step
-├── walks/<topic>-recap.html                ← durable
-├── courses/<book-slug>/index.html          ← syllabus, regenerated
-├── courses/<book-slug>/<book_number>.html  ← interactive lesson, cached
+├── index.html                              ← 自动更新的目录
+├── library.html                            ← 书架总览
+├── nutshells/<book-slug>.html              ← 缓存，确定性
+├── synthesis/YYYY-MM-DD-<query-slug>.html  ← 带日期，永不复用
+├── walks/<topic>-step-<N>.html             ← 每步覆盖
+├── walks/<topic>-recap.html                ← 持久保留
+├── courses/<book-slug>/index.html          ← 课程大纲，重新生成
+├── courses/<book-slug>/<book_number>.html  ← 交互课程页，缓存
 └── comparisons/  toolkits/  cheatsheets/
-    concept-maps/  glossaries/              ← cached per slug
+    concept-maps/  glossaries/              ← 按 slug 缓存
 ```
 
-Deterministic outputs (nutshell, toolkit, cheatsheet, concept-map,
-per-book glossary, library, course lessons) are cached and reused;
-non-deterministic ones (synthesis, comparison, walk-recap) accumulate as
-dated files. The design system lives at
+确定性输出（nutshell、toolkit、cheatsheet、concept-map、按书 glossary、
+library、课程页）被缓存复用；非确定性输出（synthesis、comparison、
+walk-recap）以带日期的文件累积。设计系统位于
 [`.claude/skills/the-knowledge-guy/design-system/`](./.claude/skills/the-knowledge-guy/design-system/)
-— `shell.html` (which carries the static CSS plus two guarded engines: the
-practice **lab engine** and the **concept-widget engine**), `layouts.md`,
-`widgets.md` (the widget schema), and a full visual contract at
-`reference/full-demo-light.html`.
+—— `shell.html`（带静态 CSS 与两个受保护的引擎：练习**实验引擎**与
+**概念部件引擎**）、`layouts.md`、`widgets.md`（部件 schema）、以及
+`reference/full-demo-light.html` 里的完整视觉契约。
 
-## Honest limitations
+## 诚实的局限
 
-- Optimised for 50–500 page **technical or non-fiction prose**.
-  Cookbooks, reference manuals, and dense math textbooks extract
-  less cleanly.
-- Stage 0 requires PyMuPDF; scanned PDFs without an OCR layer fall
-  back to text-only (no figures).
-- Image-heavy books cost extra at extraction time — the pipeline
-  reads every kept figure with a vision call.
-- **Course mode** needs a modern browser to open the generated pages.
-  Quizzes and JavaScript labs run fully offline; **Python** labs fetch
-  Pyodide from a CDN on first Run and fall back to "check with Claude"
-  when offline. Open-ended tasks are graded back in chat, not in the
-  page. Practice generation (Stage 3) is best on technical / textbook /
-  vuln-hunting books; narrative and finance books get quizzes and
-  reflection tasks rather than code labs.
+- 针对 50–500 页的**技术或非虚构散文**优化。菜谱、参考手册和密集数学
+  教材抽出来的效果较差。
+- Stage 0 依赖 PyMuPDF；无 OCR 层的扫描 PDF 退回纯文本（无图）。
+- 图片密集的书在抽取时额外费钱 —— 管线对每张保留的图都发一次 vision 调用。
+- **course 模式**需要现代浏览器打开生成的页面。测验和 JavaScript 实验
+  完全离线可跑；**Python** 实验首次 Run 时从 CDN 拉 Pyodide，离线则退回
+  "check with Claude"。开放式任务回到聊天里判分，不在页面里。练习生成
+  （Stage 3）最适合技术 / 教材 / 漏洞挖掘类书籍；叙事与金融类书籍得到的是
+  测验和反思任务，而非代码实验。
 
-## Design principles
+## 设计原则
 
-1. **Auto-discovery over configuration.**
-2. **Two tiers per skill — Tier 1 always loaded, Tier 2 paged in.**
-3. **Plumbing in Python, intelligence in Claude.**
-4. **Parallel by default** — multi-skill answers and multi-step
-   teaching both fan out in a single message.
-5. **Raw stays with the skill** — re-extraction never re-runs Stage 0.
-6. **Filesystem-driven resume; idempotent upgrade scripts.**
+1. **自动发现优于配置。**
+2. **每技能两层 —— 第一层常驻加载，第二层按需调入。**
+3. **Python 负责管道，Claude 负责智能。**
+4. **默认并行** —— 多技能回答与多步教学都在单条消息中扇出。
+5. **raw 随技能保留** —— 重新抽取从不重跑 Stage 0。
+6. **文件系统驱动的恢复；幂等的升级脚本。**
 
-## Repository layout
+## 仓库结构
 
 ```
 the-knowledge-guy/
 ├── README.md · CLAUDE.md
-├── artifacts/                  ← every HTML output lands here
+├── artifacts/                  ← 所有 HTML 输出落在这里
 └── .claude/skills/
     ├── book-to-skill/
-    │   ├── SKILL.md            ← pipeline runbook (Stages 0-3)
-    │   ├── reference/          ← templates, genre profiles, concept-map spec,
-    │   │                         practice-template.md (the Stage-3 contract)
+    │   ├── SKILL.md            ← 管线运行手册（Stage 0-3）
+    │   ├── reference/          ← 模板、体裁画像、concept-map 规格、
+    │   │                         practice-template.md（Stage 3 契约）
     │   └── scripts/            ← extract.py · detect_chapters.py · lint_chapters.py
     │                             lint_practice.py · lint_concept_widgets.py
     │                             backfill_book_numbers.py · relabel_nutshell.py
     │                             upgrade_walk_memory.py · upgrade_course_memory.py
     ├── the-knowledge-guy/
-    │   ├── SKILL.md            ← mode dispatch + all 13 modes (incl. course / check)
-    │   ├── walk-mode.md        ← interactive curriculum + quiz + course memory
-    │   └── design-system/      ← shell.html (+ lab & widget engines) · layouts.md
+    │   ├── SKILL.md            ← 模式分发 + 全部 13 个模式（含 course / check）
+    │   ├── walk-mode.md        ← 互动课程 + 测验 + 课程记忆
+    │   └── design-system/      ← shell.html（+ 实验与部件引擎）· layouts.md
     │                             widgets.md · reference/
-    └── <book-derived skills>/  ← one per ingested book (+ optional practice/)
+    └── <book-derived skills>/  ← 每本摄入的书一个（+ 可选 practice/）
 ```
 
-## Install on your platform
+## 在你的平台上安装
 
-This repo ships **two skills** — `book-to-skill` and
-`the-knowledge-guy`. Both must be installed. Generated book-skills
-(from running `/book-to-skill`) sit alongside them and are picked
-up by the router automatically. Requires
-[`uv`](https://docs.astral.sh/uv/) for the per-skill Python venv
-(PyMuPDF + ebooklib + beautifulsoup4 + pypdf).
+这个仓库带**两个技能** —— `book-to-skill` 和 `the-knowledge-guy`。两个都
+必须安装。生成的图书技能（运行 `/book-to-skill` 的产物）与它们并排存放，
+路由器会自动捡起。每个技能的 Python venv 需要
+[`uv`](https://docs.astral.sh/uv/)（PyMuPDF + ebooklib + beautifulsoup4 + pypdf）。
 
-### Universal install — clone once, symlink everywhere
+### 通用安装 —— 克隆一次，到处软链
 
-Covers Claude Code + Claude Desktop in one step:
+一步覆盖 Claude Code + Claude Desktop：
 
 ```bash
 git clone https://github.com/vitalysim/the-knowledge-guy.git ~/the-knowledge-guy
@@ -272,26 +239,23 @@ ln -s ~/the-knowledge-guy/.claude/skills/the-knowledge-guy  ~/.claude/skills/
 ~/the-knowledge-guy/.claude/skills/book-to-skill/scripts/setup.sh
 ```
 
-Symlinking (rather than copying) means `git pull` upgrades both
-skills in place. Other platforms (web, API, Codex, Copilot) add a
-second link, a ZIP upload, or an API registration — see below.
+软链（而非拷贝）意味着 `git pull` 会就地升级两个技能。其他平台（web、API、
+Codex、Copilot）各加一条链接、一次 ZIP 上传或一次 API 注册 —— 见下。
 
-### Claude Code (CLI) — `~/.claude/skills/`
+### Claude Code（CLI）—— `~/.claude/skills/`
 
-The universal install above covers this. Project-scoped alternative:
-drop the two skills into `<your-project>/.claude/skills/` instead.
-Skills hot-reload — no restart needed.
-Docs: <https://code.claude.com/docs/en/skills>
+上面的通用安装已覆盖这里。项目级替代方案：把两个技能放进
+`<your-project>/.claude/skills/`。技能热加载 —— 无需重启。
+文档：<https://code.claude.com/docs/en/skills>
 
-### Claude Desktop (macOS / Windows) — shared user-scope dir
+### Claude Desktop（macOS / Windows）—— 共享的用户级目录
 
-The desktop app reads the same `~/.claude/skills/` as the CLI. If
-you ran the universal install, the app picks the skills up on next
-launch. Available on Free / Pro / Max / Team / Enterprise since
-April 13, 2026.
-Docs: <https://support.claude.com/en/articles/12512180-use-skills-in-claude>
+桌面应用读与 CLI 相同的 `~/.claude/skills/`。跑过通用安装的话，应用下次
+启动即捡起技能。自 2026 年 4 月 13 日起 Free / Pro / Max / Team / Enterprise
+均可用。
+文档：<https://support.claude.com/en/articles/12512180-use-skills-in-claude>
 
-### claude.ai (web) — ZIP upload via Settings
+### claude.ai（web）—— 经 Settings 上传 ZIP
 
 ```bash
 cd ~/the-knowledge-guy/.claude/skills
@@ -299,18 +263,16 @@ zip -r book-to-skill.zip      book-to-skill
 zip -r the-knowledge-guy.zip  the-knowledge-guy
 ```
 
-Then in claude.ai: **Settings → Customize → Skills → Create skill →
-Upload .zip**. Repeat for each ZIP. Requires Code Execution + File
-Creation enabled. Note: claude.ai can't write to a local
-`artifacts/` folder — HTML artifacts in web sessions render inline
-in the chat container instead.
-Docs: <https://support.claude.com/en/articles/12512180-use-skills-in-claude>
+然后在 claude.ai 里：**Settings → Customize → Skills → Create skill →
+Upload .zip**。每个 ZIP 重复一次。需要启用 Code Execution + File Creation。
+注意：claude.ai 无法写入本地 `artifacts/` 目录 —— web 会话里的 HTML 产物
+改为在聊天容器内联渲染。
+文档：<https://support.claude.com/en/articles/12512180-use-skills-in-claude>
 
-### Anthropic API / Agent SDK — `container.skills`
+### Anthropic API / Agent SDK —— `container.skills`
 
-Register each skill as a custom skill, then reference both in
-`container.skills` with the beta header (code execution must be
-enabled; up to 8 skills per request):
+把每个技能注册为 custom skill，然后在 `container.skills` 中引用两者，带
+beta header（需启用代码执行；每请求至多 8 个技能）：
 
 ```python
 client.messages.create(
@@ -322,12 +284,11 @@ client.messages.create(
 )
 ```
 
-Docs: <https://platform.claude.com/docs/en/build-with-claude/skills-guide>
+文档：<https://platform.claude.com/docs/en/build-with-claude/skills-guide>
 
-### OpenAI Codex CLI — `~/.agents/skills/`
+### OpenAI Codex CLI —— `~/.agents/skills/`
 
-Codex CLI (since Dec 2025) consumes `SKILL.md` as-is from
-`~/.agents/skills/`:
+Codex CLI（2025 年 12 月起）从 `~/.agents/skills/` 原样消费 `SKILL.md`：
 
 ```bash
 mkdir -p ~/.agents/skills
@@ -335,16 +296,14 @@ ln -s ~/the-knowledge-guy/.claude/skills/book-to-skill      ~/.agents/skills/
 ln -s ~/the-knowledge-guy/.claude/skills/the-knowledge-guy  ~/.agents/skills/
 ```
 
-Codex's tool runtime differs from Claude Code's (no `Skill` tool, no
-`AskUserQuestion`), so the **walk** and **ingest** modes degrade to
-prompted-text fallbacks; **ask**, **nutshell**, **library**, and the
-other read-only modes work directly.
-Docs: <https://developers.openai.com/codex/skills>
+Codex 的工具运行时与 Claude Code 不同（无 `Skill` 工具、无 `AskUserQuestion`），
+因此 **walk** 和 **ingest** 模式退化为提示词式文本回退；**ask**、
+**nutshell**、**library** 及其他只读模式可直接工作。
+文档：<https://developers.openai.com/codex/skills>
 
-### GitHub Copilot — `.github/skills/` per repo
+### GitHub Copilot —— 每仓库 `.github/skills/`
 
-Copilot's skill support (April 2026) is project-scoped. For each
-repo where you want the skills available:
+Copilot 的技能支持（2026 年 4 月）是项目级的。对每个希望启用技能的仓库：
 
 ```bash
 cd <your-repo>
@@ -353,130 +312,108 @@ cp -R ~/the-knowledge-guy/.claude/skills/book-to-skill      .github/skills/
 cp -R ~/the-knowledge-guy/.claude/skills/the-knowledge-guy  .github/skills/
 ```
 
-Active in Copilot's agent mode. The Python venv assumed by
-`book-to-skill` won't exist in Copilot's container — ingest mode
-doesn't run there; query modes do.
-Docs: <https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills>
-and <https://code.visualstudio.com/docs/copilot/customization/agent-skills>
+在 Copilot 的 agent 模式生效。`book-to-skill` 假设的 Python venv 在
+Copilot 容器里不存在 —— 摄入模式在那里跑不了；查询模式可以。
+文档：<https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills>
+与 <https://code.visualstudio.com/docs/copilot/customization/agent-skills>
 
-### Porting to platforms without native skill support
+### 移植到无原生技能支持的平台
 
-- **Cursor IDE** — uses `.cursor/rules/*.mdc`; adaptation is
-  mechanical (frontmatter conversion + per-file split).
-  [Docs](https://cursor.com/docs/rules).
-- **Zed Editor** — native support pending
-  ([zed#49057](https://github.com/zed-industries/zed/issues/49057));
-  paste `SKILL.md` content into the system prompt in the interim.
-- **Cline / Roo / Aider / Continue** — no standardised skills
-  mechanism as of May 2026; stopgap is to paste the runbook text
-  from `book-to-skill/SKILL.md` and `the-knowledge-guy/SKILL.md`
-  into the platform's system-prompt or rules file.
+- **Cursor IDE** —— 用 `.cursor/rules/*.mdc`；适配是机械性的（frontmatter
+  转换 + 按文件拆分）。[文档](https://cursor.com/docs/rules)。
+- **Zed 编辑器** —— 原生支持待定
+  ([zed#49057](https://github.com/zed-industries/zed/issues/49057))；过渡期
+  把 `SKILL.md` 内容粘进系统提示词。
+- **Cline / Roo / Aider / Continue** —— 截至 2026 年 5 月无标准化技能机制；
+  权宜之计是把 `book-to-skill/SKILL.md` 和 `the-knowledge-guy/SKILL.md` 的
+  运行手册文本粘进平台的系统提示词或规则文件。
 
-### Compatibility matrix (May 2026)
+### 兼容矩阵（2026 年 5 月）
 
-| Platform | Native skills? | Install location | Consumes `SKILL.md` as-is? |
+| 平台 | 原生技能？ | 安装位置 | 原样消费 `SKILL.md`？ |
 | --- | --- | --- | --- |
-| **Claude Code (CLI)** | ✓ | `~/.claude/skills/` or `./.claude/skills/` | yes |
-| **Claude Desktop** (mac/win) | ✓ | `~/.claude/skills/` | yes |
-| **claude.ai** (web) | ✓ | Settings → Customize → Skills (ZIP upload) | yes |
-| **Anthropic API / Agent SDK** | ✓ | `container={"skills":[…]}` + beta header | yes |
-| **OpenAI Codex CLI** (Dec 2025+) | ✓ | `~/.agents/skills/` | yes |
-| **GitHub Copilot** (Apr 2026+) | ✓ | `.github/skills/` per repo | yes |
-| **Cursor IDE** | needs adapt | `.cursor/rules/*.mdc` | no — manual conversion |
-| **Zed Editor** | pending | — | — |
-| **Cline / Roo / Aider / Continue** | no | — | — |
+| **Claude Code（CLI）** | ✓ | `~/.claude/skills/` 或 `./.claude/skills/` | 是 |
+| **Claude Desktop**（mac/win） | ✓ | `~/.claude/skills/` | 是 |
+| **claude.ai**（web） | ✓ | Settings → Customize → Skills（ZIP 上传） | 是 |
+| **Anthropic API / Agent SDK** | ✓ | `container={"skills":[…]}` + beta header | 是 |
+| **OpenAI Codex CLI**（2025 年 12 月起） | ✓ | `~/.agents/skills/` | 是 |
+| **GitHub Copilot**（2026 年 4 月起） | ✓ | 每仓库 `.github/skills/` | 是 |
+| **Cursor IDE** | 需适配 | `.cursor/rules/*.mdc` | 否 —— 手动转换 |
+| **Zed 编辑器** | 待定 | — | — |
+| **Cline / Roo / Aider / Continue** | 否 | — | — |
 
-After install, ingest your first book with
-`/book-to-skill /path/to/book.pdf` (genre prompt → cost estimate →
-name). A 600-page book takes ~10-20 min wall-clock and roughly $1-3
-in API costs depending on model.
+装好后用 `/book-to-skill /path/to/book.pdf` 摄入你的第一本书（体裁提示 →
+成本估算 → 命名）。一本 600 页的书约需 10-20 分钟墙钟时间，API 成本约
+$1-3，视模型而定。
 
-## Upgrading legacy skills
+## 升级旧技能
 
-Four idempotent helper scripts handle older skills:
-`backfill_book_numbers.py` populates `book_number` and renames
-chapter files, `relabel_nutshell.py` fixes cached nutshell headings
-after backfill, `upgrade_walk_memory.py` rewrites stale
-`<slug>/chNN` shorthand inside walk memory, and
-`upgrade_course_memory.py` repairs `book_number` drift in any
-`practice/*.json` files and `course-<slug>.md` memory after a
-re-backfill. All four are no-ops on already-current skills.
+四个幂等的辅助脚本处理旧技能：`backfill_book_numbers.py` 补写
+`book_number` 并重命名章节文件；`relabel_nutshell.py` 在回填之后修正已缓存
+nutshell 的标题；`upgrade_walk_memory.py` 改写 walk 记忆里的过期
+`<slug>/chNN` 简写；`upgrade_course_memory.py` 在重新回填之后修复
+`practice/*.json` 文件与 `course-<slug>.md` 记忆中的 `book_number` 漂移。
+四个脚本对已是最新状态的技能都是无操作（no-op）。
 
-## Contributing
+## 贡献
 
-PRs welcome. Read [`CLAUDE.md`](./CLAUDE.md) and the two `SKILL.md`
-files first — together they're the canonical architecture brief; the
-rest of the docs are derived from them.
+欢迎 PR。先读 [`CLAUDE.md`](./CLAUDE.md) 和两个 `SKILL.md` 文件 —— 三者合
+起来就是权威的架构简报，其余文档都派生自它们。
 
-**Common contributions**
+**常见贡献**
 
-- **A new mode in `the-knowledge-guy`** — add the trigger to mode
-  dispatch in `the-knowledge-guy/SKILL.md`, write the mode section,
-  and add the matching HTML layout in `design-system/layouts.md`.
-  Every mode emits an artifact (per Step 0.5).
-- **A new design-system component** — add it to
-  `design-system/shell.html`, demo it in
-  `design-system/reference/full-demo-light.html`, and reference it
-  from any layout that uses it. Don't introduce a second accent
-  colour — cobalt is load-bearing.
-- **A new practice exercise type or concept-widget type** — extend the
-  frozen contract (`book-to-skill/reference/practice-template.md` for
-  exercises, `the-knowledge-guy/design-system/widgets.md` for widgets),
-  add the renderer branch to the matching engine in
-  `design-system/shell.html`, and teach the lint
-  (`lint_practice.py` / `lint_concept_widgets.py`) to validate it. Widgets
-  must stay theme-safe — class swaps only, never a `fill`/`stroke`.
-- **A new genre profile for `book-to-skill`** — extend
-  `book-to-skill/reference/genre-profiles.md`. Genres tune chunk
-  boundaries, the chapter schema, and the reduce emphasis.
-- **A new helper script** — drop it in `book-to-skill/scripts/`,
-  make it idempotent, document the one-line invocation in
-  `book-to-skill/SKILL.md`.
-- **The hero diagram** — open
-  `artifacts/readme-hero-pipeline.html` in a browser, flip the
-  theme toggle if desired, screenshot the `.plate` block, and save
-  to `docs/hero-pipeline.png`. The source HTML uses the live
-  design-system tokens, so the diagram stays in sync if the
-  palette changes.
+- **给 `the-knowledge-guy` 加一个新模式** —— 在 `the-knowledge-guy/SKILL.md`
+  的模式分发里加触发词，写模式章节，在 `design-system/layouts.md` 加对应的
+  HTML 布局。每个模式都产出产物（按 Step 0.5）。
+- **新设计系统组件** —— 加进 `design-system/shell.html`，在
+  `design-system/reference/full-demo-light.html` 里演示，并在用到它的布局中
+  引用。不要引入第二种强调色 —— cobalt 是承重结构。
+- **新的练习类型或概念部件类型** —— 扩展冻结契约（练习用
+  `book-to-skill/reference/practice-template.md`，部件用
+  `the-knowledge-guy/design-system/widgets.md`），在 `design-system/shell.html`
+  对应引擎里加渲染分支，并教会 lint（`lint_practice.py` /
+  `lint_concept_widgets.py`）校验它。部件必须保持主题安全 —— 只换 class，
+  永不设 `fill`/`stroke`。
+- **给 `book-to-skill` 加新的体裁画像** —— 扩展
+  `book-to-skill/reference/genre-profiles.md`。体裁调校分块边界、章节 schema
+  与 reduce 的侧重。
+- **新的辅助脚本** —— 放进 `book-to-skill/scripts/`，做成幂等的，在
+  `book-to-skill/SKILL.md` 记录一行调用。
+- **hero 示意图** —— 在浏览器打开 `artifacts/readme-hero-pipeline.html`，
+  需要时翻转主题开关，对 `.plate` 块截图，保存为 `docs/hero-pipeline.png`。
+  源 HTML 用的是设计系统的实时 token，调色板变了图也会跟着同步。
 
-**Style**
+**风格**
 
-- Markdown wraps at 80 columns; commands and paths go in fenced code
-  blocks; no trailing whitespace.
-- Python is PEP-8 with no extra dependencies beyond what `setup.sh`
-  provisions (PyMuPDF, ebooklib, beautifulsoup4, pypdf).
-- Voice in docs is editorial-confident — declarative sentences, no
-  marketing language, no emoji.
-- Commit subjects are imperative (`Add X`, `Fix Y`); the body
-  explains *why* the change exists, not *what* changed.
+- Markdown 按 80 列折行；命令与路径放围栏代码块；行尾不留空格。
+- Python 遵循 PEP-8，不引入 `setup.sh` 之外的新依赖（PyMuPDF、ebooklib、
+  beautifulsoup4、pypdf）。
+- 文档语气是编辑式的自信 —— 陈述句，不用营销语言，不用 emoji。
+- commit 标题用祈使句（`Add X`、`Fix Y`）；正文解释这个改动*为什么*存在，
+  而非*改了什么*。
 
-**Before opening a PR**
+**开 PR 之前**
 
-- If you touched a chapter file, run
-  `book-to-skill/scripts/lint_chapters.py <skill-dir>`.
-- If you touched `extract.py`, ingest a small test book and confirm
-  `chapters_manifest.json` is `schema_version: 2` with every entry
-  carrying `book_number`.
-- If you touched a layout, regenerate one cached artifact (e.g.
-  `/the-knowledge-guy nutshell <slug> --regenerate`) and open it in
-  both light and dark themes.
-- If you touched the practice schema, an exercise renderer, or a lab,
-  run `book-to-skill/scripts/lint_practice.py <skill-dir>` — it executes
-  every lab to prove its solution passes and its starter fails.
-- If you touched the widget schema, the widget engine, or a course page,
-  run `book-to-skill/scripts/lint_concept_widgets.py --page <course.html>`
-  and open the page in both themes (and with reduced motion).
+- 动过章节文件，跑 `book-to-skill/scripts/lint_chapters.py <skill-dir>`。
+- 动过 `extract.py`，摄入一本小的测试书，确认 `chapters_manifest.json` 为
+  `schema_version: 2` 且每个条目都带 `book_number`。
+- 动过布局，重新生成一个缓存产物（例如
+  `/the-knowledge-guy nutshell <slug> --regenerate`），并在亮、暗两种主题下
+  打开。
+- 动过练习 schema、练习渲染器或实验，跑
+  `book-to-skill/scripts/lint_practice.py <skill-dir>` —— 它会执行每个实验，
+  证明解答能过、起点会挂。
+- 动过部件 schema、部件引擎或课程页，跑
+  `book-to-skill/scripts/lint_concept_widgets.py --page <course.html>`，并在
+  两种主题下（以及减少动效设置下）打开页面。
 
 **Issues**
 
-- Bugs: include the affected skill slug, the failing slash command,
-  and the relevant `.claude/skills/<slug>/raw/metadata.json` if it
-  helps the repro.
-- Feature requests: describe the use case before sketching the
-  implementation.
+- 报 bug：附上受影响的技能 slug、失败的斜杠命令，以及有助于复现的
+  `.claude/skills/<slug>/raw/metadata.json`。
+- 功能请求：先描述使用场景，再勾勒实现。
 
-## What's next
+## 下一步
 
-Designed for but not shipped: voice-mode walks, spaced repetition on
-the recorded fumbles, remote channels (desktop / claude.ai), and a
-mastery view across overlapping walks.
+已设计但未发布：语音模式 walk、对记录的错题做间隔重复、远端通道（桌面 /
+claude.ai）、以及跨多个重叠 walk 的掌握度视图。
