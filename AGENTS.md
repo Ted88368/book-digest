@@ -1,6 +1,6 @@
 # AGENTS.md — Book Digest & Knowledge Library Guide
 
-Welcome to **book-digest**, a local AI-powered reading and knowledge repository built on top of [vitalysim/the-knowledge-guy](https://github.com/vitalysim/the-knowledge-guy).
+Welcome to **book-digest**, a local AI-powered reading and knowledge repository built on top of [the-knowledge-guy](https://github.com/Ted88368/the-knowledge-guy).
 
 ---
 

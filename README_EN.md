@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Language: Python](https://img.shields.io/badge/Language-Python-blue.svg)](https://www.python.org/)
 
-> Powered by [vitalysim/the-knowledge-guy](https://github.com/vitalysim/the-knowledge-guy)
+> Powered by [the-knowledge-guy](https://github.com/Ted88368/the-knowledge-guy)
 > 
 > Turn any PDF or EPUB in `raw/` into a structured 2-Tier AI skill — then query or tutor across your bookshelf.
 
@@ -300,7 +300,7 @@ up by the router automatically. Requires
 Covers Claude Code + Claude Desktop in one step:
 
 ```bash
-git clone https://github.com/vitalysim/the-knowledge-guy.git ~/the-knowledge-guy
+git clone https://github.com/Ted88368/the-knowledge-guy.git ~/the-knowledge-guy
 mkdir -p ~/.claude/skills
 ln -s ~/the-knowledge-guy/.claude/skills/book-to-skill      ~/.claude/skills/
 ln -s ~/the-knowledge-guy/.claude/skills/the-knowledge-guy  ~/.claude/skills/

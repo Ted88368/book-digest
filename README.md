@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Language: Python](https://img.shields.io/badge/Language-Python-blue.svg)](https://www.python.org/)
 
-> 基于 [vitalysim/the-knowledge-guy](https://github.com/vitalysim/the-knowledge-guy)
+> 基于 [the-knowledge-guy](https://github.com/Ted88368/the-knowledge-guy)
 > 
 > 把 `raw/` 里的任意 PDF 或 EPUB 变成结构化的两层 AI 技能 —— 然后在整个书架上提问、学习。
 
@@ -253,7 +253,7 @@ the-knowledge-guy/
 一步覆盖 Claude Code + Claude Desktop：
 
 ```bash
-git clone https://github.com/vitalysim/the-knowledge-guy.git ~/the-knowledge-guy
+git clone https://github.com/Ted88368/the-knowledge-guy.git ~/the-knowledge-guy
 mkdir -p ~/.claude/skills
 ln -s ~/the-knowledge-guy/.claude/skills/book-to-skill      ~/.claude/skills/
 ln -s ~/the-knowledge-guy/.claude/skills/the-knowledge-guy  ~/.claude/skills/
