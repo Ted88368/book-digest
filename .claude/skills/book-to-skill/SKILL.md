@@ -27,7 +27,7 @@ allowed-tools: >-
   Bash(uv *) Bash(bash *) Bash(mkdir *) Bash(cp *) Bash(mv *)
   Bash(rm *) Bash(find *) Bash(wc *) Bash(echo *) Bash(cat *) Bash(ls *)
   Bash(test *) Bash(file *) Bash(date *) Read Write Glob Grep Task
-argument-hint: <path-to-pdf-or-epub> [skill-name-slug] [--complete] [--practice] [--course]
+argument-hint: <path-to-pdf-or-epub> [skill-name-slug] [--complete] [--practice] [--course] [--serial | --concurrency <N>]
 arguments: [book_path, skill_name]
 effort: high
 ---
@@ -76,7 +76,7 @@ crystallised frameworks, plus a concept map of how those frameworks connect.
 ```
 Stage 0   EXTRACT   extract.py → text + images + per-chapter slices + offsets
 Pass 0    SPINE     fast read of ToC + intros → the book's thesis & framework list
-Stage 1   MAP       each chapter → one chapter file   (parallel subagents)
+Stage 1   MAP       each chapter → one chapter file   (batched, ≤ MAX_CONCURRENCY per batch)
 Step 7.5  AUDIT     each chapter → coverage verdict; re-run any gaps  (complete mode)
 Stage 2   REDUCE    all chapter files → concept map + topic index → SKILL.md
 Stage 2.5 NUTSHELL  each chapter file → one micro-summary block → nutshell.md
@@ -136,10 +136,26 @@ equivalent to the user saying the corresponding phrase at Step 4:
 | `--practice`, `--with-practice` | `WITH_PRACTICE=yes` — Stage 3 per-chapter quizzes + runnable labs + open tasks |
 | `--course` | **both** of the above — the "I want an interactive `/the-knowledge-guy course`" shortcut |
 | `--regenerate` | overwrite an existing skill's outputs (re-run stages even if files exist) |
+| `--serial` | `MAX_CONCURRENCY=1` — every subagent fan-out strictly one at a time (local models / low-concurrency machines) |
+| `--concurrency <N>` | `MAX_CONCURRENCY=N` — cap parallel subagents per batch |
 
 When a flag has pre-decided a choice, still show the Step-4 cost estimate (cost
 stays explicit) but **don't re-prompt that option** — only wait for the final
 "proceed?" confirmation. No flags = today's fully-interactive default, unchanged.
+
+**Resolve `MAX_CONCURRENCY`** (once, at start; every fan-out below honours it,
+Step 0.6 flags stripped per the rule above):
+
+1. `--serial` → `1`; `--concurrency <N>` → `N` (a flag wins over config).
+2. Else read `$(pwd)/.claude/kg-settings.json` (one `cat`) and take its
+   `max_concurrency` field (e.g. `{"max_concurrency": 2}`). File missing or
+   malformed → skip.
+3. Else `6`.
+
+**Universal fan-out rule.** Every `Task`/`Agent` fan-out runs in batches of
+≤ `MAX_CONCURRENCY` calls per message, and the next batch is spawned **only
+after the whole batch has completed**. `MAX_CONCURRENCY=1` means strictly
+serial. The subagents' task content is unchanged — only the batching.
 
 ## Step 1 — Validate input and dependencies
 
@@ -488,9 +504,11 @@ not contain "extraction failed", that chapter is done — skip it.
 `progress.json` is a running log only; do not use it to drive resume
 decisions.
 
-**Parallelise.** Spawn the chapters as parallel subagents with the `Task` tool
+**Parallelise.** Spawn the chapters as subagents with the `Task` tool
 — independent contexts keep each extraction sharp and the run survives length.
-Batch them (e.g. 5–8 at a time) for a long book. Give each subagent this task:
+Batch them at ≤ `MAX_CONCURRENCY` per message (default 6; `--serial` = strictly
+one at a time), waiting for a whole batch to finish before spawning the next.
+Give each subagent this task:
 
 ```
 Extract one chapter into a Claude Code skill chapter file.
@@ -560,7 +578,7 @@ load-bearing element in its raw chapter, and re-runs any chapter that didn't —
 ingest will not reach "done" with a known gap. Read the frozen contract first:
 `${BTS_DIR}/reference/coverage-audit-template.md` (schema, the
 load-bearing/decorative/needs-manual-review rules, `THRESHOLD=0.95`,
-`N_ROUNDS=3`). Like Stage 1, this is a parallel per-chapter fan-out.
+`N_ROUNDS=3`). Like Stage 1, this is a per-chapter fan-out (≤ `MAX_CONCURRENCY` per batch).
 
 `mkdir -p "${SKILL_DIR}/raw/coverage"`. Eligible chapters = the same set Stage 1
 extracted (skip `fm`/`bm` and `word_count < 300`).
@@ -572,7 +590,7 @@ for round in 1..3:
   1. MECHANICAL pre-check (cheap, all chapters):
         "${BTS_DIR}/.venv/bin/python" "${BTS_DIR}/scripts/lint_chapters.py" \
           "${SKILL_DIR}" --coverage --json   →  {book_number: [figure deficits]}
-  2. AUDIT (LLM, parallel, batched 5–8) every chapter NOT already passing on disk
+  2. AUDIT (LLM, ≤ MAX_CONCURRENCY per batch) every chapter NOT already passing on disk
      (a chapter is passing iff raw/coverage/<bn>.json exists, parses, and
      verdict=="complete"). Each audit subagent uses the prompt in
      coverage-audit-template.md, reads the raw slice + the toolkit, and writes its
@@ -671,8 +689,8 @@ so cost scales with chapter count, not book size.
      (any front- or back-matter slot, even if it happens to exceed the
      word threshold — the user wants chapters in a nutshell skim,
      not indexes or copyright pages).
-3. For every remaining entry, spawn a parallel subagent (single
-   message, N `Task` calls). Each subagent gets:
+3. For every remaining entry, spawn a subagent in batches of ≤ `MAX_CONCURRENCY`
+   `Task` calls per message (wait for the whole batch before the next). Each subagent gets:
    - The template (inline).
    - The chapter's toolkit file path (`${SKILL_DIR}/<file>`).
    - The chapter index, title, and skill slug.
@@ -707,7 +725,7 @@ renders as an interactive learn-by-doing site (auto-checked quizzes,
 in-browser runnable code labs, open tasks). Skipping it changes nothing
 else; it can be added later by re-running with `--regenerate`.
 
-Like Stage 1, this is a **parallel per-chapter subagent fan-out**; like the
+Like Stage 1, this is a **per-chapter subagent fan-out (≤ `MAX_CONCURRENCY` per batch)**; like the
 nutshell, it maps over the **chapter toolkit files** (plus the raw slice),
 so cost scales with chapter count. The frozen output contract is
 `${BTS_DIR}/reference/practice-template.md` — read it first.
@@ -733,7 +751,7 @@ so cost scales with chapter count. The frozen output contract is
    `practice/<book_number>-<slug>.json` exists, parses, and has ≥ 1
    exercise. Skip those. (An empty/failed stub does **not** count — retry it.)
 
-### Fan-out (one subagent per remaining chapter, batched 5–8)
+### Fan-out (one subagent per remaining chapter, ≤ `MAX_CONCURRENCY` per batch)
 
 Each subagent reads: the chapter toolkit `chapters/<book_number>-<slug>.md`
 (primary), the raw slice `<CHAPTERS_DIR>/<book_number>.txt`, `raw/spine.md`,

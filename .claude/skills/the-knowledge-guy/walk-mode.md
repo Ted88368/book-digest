@@ -184,8 +184,9 @@ For each step `i` from `$START_STEP` to the last:
 
 ### 6b. Teach (one focused subagent)
 
-Spawn one `Agent` per step (or N parallel agents if a multi-skill step
-needs both perspectives). Prompt template:
+Spawn one `Agent` per step (or N agents if a multi-skill step needs both
+perspectives — ≤ `MAX_CONCURRENCY` per batch, per `SKILL.md` Step 0.1).
+Prompt template:
 
 ```
 You are a teacher for ONE step of a guided walk.
@@ -472,8 +473,8 @@ them. End the chat response with the recap artifact path.
 - **Auto-memory** (`~/.claude/projects/<project>/memory/`) — resume across
   sessions; `MEMORY.md` auto-loads at session start so the user sees their
   open walks.
-- **Parallel `Agent` subagents** — multi-skill teaching steps run in
-  parallel; same fan-out as ask mode.
+- **`Agent` subagents** — multi-skill teaching steps run in batches of
+  ≤ `MAX_CONCURRENCY`; same fan-out as ask mode (Step 0.1).
 - **`TaskCreate` / `TaskUpdate`** — curriculum as a live task list.
 - **Progressive disclosure** — this file is loaded only when walk mode
   fires; `SKILL.md` stays small.

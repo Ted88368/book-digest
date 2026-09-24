@@ -223,13 +223,43 @@ practice **lab engine** and the **concept-widget engine**), `layouts.md`,
   vuln-hunting books; narrative and finance books get quizzes and
   reflection tasks rather than code labs.
 
+## Local models / low-concurrency machines
+
+Both skills fan out subagents for their fan-out work (ingest stages,
+multi-skill answers, multi-step teaching). The default batch width is 6
+parallel subagents — fine for a cloud backend, but heavy on a local
+model (LM Studio, Ollama, …), where every subagent is a long
+multi-turn loop. Two levers:
+
+- **Per-project** — create `.claude/kg-settings.json` at the project
+  root (gitignored; one per project, so different projects can use
+  different backends and budgets):
+
+  ```json
+  {"max_concurrency": 2}
+  ```
+
+  Every fan-out in that project then runs in batches of at most 2,
+  waiting for a whole batch to complete before the next.
+
+- **One-off** — pass `--serial` (strictly one subagent at a time) or
+  `--concurrency <N>` on the invocation; a flag wins over the file:
+
+  ```
+  /book-to-skill ./book.pdf --serial
+  /the-knowledge-guy add ./book.pdf --concurrency 2
+  ```
+
+  No file and no flag → today's default behaviour, unchanged.
+
 ## Design principles
 
 1. **Auto-discovery over configuration.**
 2. **Two tiers per skill — Tier 1 always loaded, Tier 2 paged in.**
 3. **Plumbing in Python, intelligence in Claude.**
-4. **Parallel by default** — multi-skill answers and multi-step
-   teaching both fan out in a single message.
+4. **Parallel by default, bounded by a budget** — fan-outs run in
+   batches of ≤ `MAX_CONCURRENCY` (default 6; override with
+   `--serial` / `--concurrency <N>` or `.claude/kg-settings.json`).
 5. **Raw stays with the skill** — re-extraction never re-runs Stage 0.
 6. **Filesystem-driven resume; idempotent upgrade scripts.**
 

@@ -36,7 +36,7 @@ allowed-tools: >-
   Bash(ls *) Bash(find *) Bash(cat *) Bash(test *) Bash(pwd)
   Bash(mkdir *) Bash(date *) Bash(grep *)
   Read Write Edit Glob Grep Agent Skill AskUserQuestion
-argument-hint: <question>  |  walk <topic>  |  course <book> [<ch>]  |  check <book> <ch> <id>  |  resume  |  nutshell <book>  |  compare <topic>  |  cheatsheet <book>  |  glossary  |  concept-map <book>  |  toolkit <book> <ch>  |  library  |  add <path-to-pdf-or-epub>
+argument-hint: <question>  |  walk <topic>  |  course <book> [<ch>]  |  check <book> <ch> <id>  |  resume  |  nutshell <book>  |  compare <topic>  |  cheatsheet <book>  |  glossary  |  concept-map <book>  |  toolkit <book> <ch>  |  library  |  add <path-to-pdf-or-epub>  |  [--serial | --concurrency <N>]
 ---
 
 # the-knowledge-guy — knowledge router + interactive teacher
@@ -109,9 +109,33 @@ Use this listing to:
 
 ---
 
-## Mode dispatch (after Step 0)
+## Step 0.1 — Concurrency budget (resolve once, before mode dispatch)
 
-Inspect `$QUERY`, checking in this order:
+Every subagent fan-out below is bounded by one budget, `MAX_CONCURRENCY`.
+
+**First, strip flags.** Remove any `--serial` / `--concurrency <N>` tokens
+from `$QUERY` (as with the `--course` / `--lab` / `--walk` suffixes, they
+must not reach routing, the topic, or the question text). Then resolve:
+
+1. `--serial` → `MAX_CONCURRENCY=1`; `--concurrency <N>` → `MAX_CONCURRENCY=N`
+   (a flag wins over config).
+2. Else read `$(pwd)/.claude/kg-settings.json` (one `cat`) and take its
+   `max_concurrency` field (e.g. `{"max_concurrency": 2}`). File missing or
+   malformed → skip.
+3. Else `MAX_CONCURRENCY=6`.
+
+**Universal fan-out rule.** Every `Agent` fan-out (ask, walk, course,
+comparison, nutshell self-heal, ingest hand-off) runs in **batches of
+≤ `MAX_CONCURRENCY` calls per message**, and the next batch is spawned only
+**after the whole batch has completed**. `MAX_CONCURRENCY=1` means strictly
+one subagent at a time. The subagents' task content is unchanged — only
+the batching.
+
+---
+
+## Mode dispatch (after Steps 0 + 0.1)
+
+Inspect `$QUERY` (concurrency flags already stripped in Step 0.1), checking in this order:
 
 1. **Resume** — if `$QUERY` is the literal `resume`, **walk mode** (resume
    an existing walk — see walk-mode.md Step 1).
@@ -290,8 +314,9 @@ Step 8.5:
      "Chapter 7 — …", "7. …", "Introduction", "Appendix A", etc.).
      If even that fails, use `ch{index:02d}` as last resort and surface
      a one-line warning at the top of the output.
-6. Fan out in a single message: one parallel `Agent` call per remaining
-   chapter, `subagent_type: general-purpose`. Each subagent prompt:
+6. Fan out in batches of ≤ `MAX_CONCURRENCY` (wait for a whole batch to
+   complete before the next): one `Agent` call per remaining chapter,
+   `subagent_type: general-purpose`. Each subagent prompt:
 
    ```
    You are generating one per-chapter nutshell block for a skill skim.
@@ -369,7 +394,8 @@ Triggered by `compare`, `comparison`, `<topic> vs <topic>`.
 2. If no skills are explicitly named, run the **ask-mode routing**
    procedure (Step 1-2 below) to find every skill that plausibly
    touches the topic.
-3. Fan out one subagent per skill (same prompt template as Step 3),
+3. Fan out one subagent per skill (same prompt template as Step 3, in
+   batches of ≤ `MAX_CONCURRENCY`),
    but ask each for **how this skill specifically handles `$TOPIC`** in
    200-300 words with a one-word stance: `agree` / `extend` / `tension`
    relative to the dominant framing.
@@ -533,7 +559,7 @@ For each chapter in the sequence (or the one requested):
    `<skill>/SKILL.md` (orientation) + `<skill>/chapters/<book_number>-<slug>.md`
    (the source). It returns the theory section composed from existing
    components (`.def`, `.worked`, `.code-block`, `.callout`, `.capsule`,
-   `.source`). Fan these out in parallel across uncached chapters (batch ~6).
+   `.source`). Fan these out across uncached chapters in batches of ≤ `MAX_CONCURRENCY`.
 
    **Append this concept-visual clause to the teaching prompt** (course mode
    only — chat walks never get it):
@@ -685,8 +711,9 @@ If a second token of the form `[a-z0-9-]+` (not starting with `--`) follows the
 path, treat it as the optional skill slug.
 
 **Flags (pass-through).** Also scan `$QUERY` for any of `--complete` /
-`--complete-coverage`, `--practice` / `--with-practice`, `--course`, and
-`--regenerate` (book-to-skill's Step-0.6 flags). Collect the ones present into
+`--complete-coverage`, `--practice` / `--with-practice`, `--course`,
+`--regenerate`, `--serial`, and `--concurrency <N>` (book-to-skill's Step-0.6
+flags). Collect the ones present into
 `$FLAGS`, and exclude every `--…` token from slug matching (a flag must never
 become the slug). `--course` = complete coverage **+** practice — the "make it an
 interactive course" shortcut.
@@ -796,14 +823,16 @@ Routing rules:
 
 Before Step 3, print a one-line plan:
 
-> Routing to: `skill-a`, `skill-b` — spawning N parallel subagents.
+> Routing to: `skill-a`, `skill-b` — spawning N subagents (≤ MAX_CONCURRENCY per batch).
 
 ---
 
-## Step 3 — Fan out (single message, N parallel Agent calls)
+## Step 3 — Fan out (batches of ≤ MAX_CONCURRENCY Agent calls)
 
-In **one message**, emit one `Agent` tool call per matched skill. They run
-in parallel; do not call them sequentially. Each subagent:
+Emit one `Agent` tool call per matched skill, in **batches of ≤
+`MAX_CONCURRENCY` per message** (resolved in Step 0.1), waiting for a whole
+batch to complete before spawning the next. Never do the consulted work in
+the router itself. Each subagent:
 
 - `subagent_type`: `general-purpose`
 - `description`: `Consult <skill-name>`
@@ -914,8 +943,10 @@ response with the artifact path so the user can open it.
 
 1. **Never read a domain SKILL.md yourself.** That is the subagents' job.
    You only read frontmatter (≤ 40 lines per skill) for routing.
-2. **Always fan out in parallel** — one message with N `Agent` calls.
-   Sequential fan-out defeats the design.
+2. **Always fan out in batches of ≤ `MAX_CONCURRENCY`** (Step 0.1) —
+   never do the consulted work in the router itself. `MAX_CONCURRENCY=1`
+   means strictly one at a time; that is a deliberate budget, not a
+   design failure.
 3. **Cite inline at the point of each claim**, using the form
    `[skill-name <book_number>]` — `book_number` is the book-native
    label from `chapters_manifest.json` (`ch07`, `intro`, `preface`,

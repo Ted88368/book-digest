@@ -44,6 +44,9 @@ __pycache__/
 # `.claude/settings.json` if any; user-scoped local prefs are ignored).
 .claude/settings.local.json
 
+# Per-project concurrency budget for the two skills (local-model machines).
+.claude/kg-settings.json
+
 # Keep artifacts directory structure
 !artifacts/.gitkeep
 

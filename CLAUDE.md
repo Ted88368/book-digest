@@ -244,6 +244,14 @@ Claude Code's skill runtime; do not try to call them from bash.
   grammar) is the durable source of truth; browser `localStorage` is a
   live cache.
 
+## Generated research documents
+
+Long-form Markdown produced in this repo (e.g.
+`数据中心对AI硬件的需求.md`) is written to the **project root**, not to the
+Desktop — this overrides the global CLAUDE.md 写作任务规范 default.
+These notes are user-owned content: do not commit them unless the user
+explicitly asks.
+
 ## Conventions to preserve when editing
 
 - **Cite chapters as `[skill-name <book_number>]` inline** at the point
@@ -264,6 +272,13 @@ Claude Code's skill runtime; do not try to call them from bash.
   `practice-template.md` → "Field-visibility rule".
 - **Drop-in extensibility is sacred** — never hardcode skill slugs in
   routing or rendering. The router rediscovers skills every invocation.
+- **Concurrency budget bounds every fan-out.** All `Task`/`Agent`
+  fan-outs in both runbooks run in batches of ≤ `MAX_CONCURRENCY` calls
+  per message, waiting for a whole batch to complete before the next
+  (resolution: `--serial` / `--concurrency <N>` flag →
+  `$(pwd)/.claude/kg-settings.json` `max_concurrency` → default 6).
+  Never reintroduce unbounded "single message, N parallel calls" wording
+  when editing a runbook — local-model backends cannot sustain it.
 - **Design system: never invent CSS in an artifact.** Pull the
   EXTRA_CSS block from `the-knowledge-guy/design-system/layouts.md`
   verbatim. New components or utility classes go in
